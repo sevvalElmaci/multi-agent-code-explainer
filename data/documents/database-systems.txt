@@ -1,0 +1,32 @@
+﻿Database Management Systems
+
+A Database Management System (DBMS) is software that enables users to create, manage, and interact with databases. Databases store and organize data in a structured way, making it easy to retrieve, update, and analyze information.
+
+Types of Databases:
+
+Relational Databases organize data into tables with rows and columns. Tables are related through foreign keys, creating relationships between different entities. SQL (Structured Query Language) is used to query and manipulate data. Popular relational databases include PostgreSQL, MySQL, and Oracle.
+
+NoSQL Databases provide flexible schemas for unstructured data. Document databases like MongoDB store data in JSON-like documents. Key-value stores like Redis offer fast lookups. Column-family databases like Cassandra handle large amounts of distributed data. Graph databases like Neo4j model relationships between entities.
+
+Relational Database Concepts:
+
+Tables are the basic structure for storing data. Each table has columns that define the type of data stored and rows that contain actual data records. Primary keys uniquely identify each row in a table.
+
+Relationships connect tables through foreign keys. One-to-many relationships link one record in a table to multiple records in another. Many-to-many relationships require junction tables. Relationships maintain data integrity and reduce redundancy.
+
+Normalization organizes data to reduce duplication. First normal form eliminates repeating groups. Second normal form removes partial dependencies. Third normal form eliminates transitive dependencies. Normalization improves data consistency but may impact query performance.
+
+SQL Operations:
+
+SELECT retrieves data from tables. WHERE clauses filter results based on conditions. JOIN operations combine data from multiple tables. Aggregate functions like COUNT, SUM, and AVG perform calculations on data sets.
+
+INSERT adds new records to tables. UPDATE modifies existing records. DELETE removes records from tables. Transactions ensure data consistency by grouping operations that must complete together.
+
+Database Design:
+
+Schema design defines the structure of your database. Good design balances normalization with performance. Indexes improve query speed by creating fast lookup structures. However, indexes slow down write operations and consume storage space.
+
+Constraints enforce data integrity rules. NOT NULL prevents empty values. UNIQUE ensures no duplicate values. CHECK validates data against conditions. Foreign key constraints maintain referential integrity between tables.
+
+Performance Optimization:
+Indexing speeds up queries by providing quick access paths. Query optimization analyzes and improves SQL statements. Caching stores frequently accessed data in memory. Connection pooling reuses database connections. Partitioning divides large tables into smaller, manageable pieces.

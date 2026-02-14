@@ -1,0 +1,583 @@
+# FastAPI WebSocket Complete Guide
+
+## Introduction to WebSocket
+
+WebSocket is a computer communications protocol providing full-duplex communication channels over a single TCP connection. It enables real-time, bidirectional communication between client and server.
+
+### Why WebSocket?
+
+Traditional HTTP follows a request-response model where the client initiates all communication. WebSocket allows the server to push data to clients without being asked, making it ideal for:
+
+- Real-time chat applications
+- Live notifications
+- Stock/crypto price updates
+- Multiplayer games
+- Collaborative editing tools
+- Live dashboards and monitoring
+
+## Basic WebSocket in FastAPI
+
+### Simple WebSocket Endpoint
+
+The most basic WebSocket endpoint in FastAPI:
+
+```python
+from fastapi import FastAPI, WebSocket
+
+app = FastAPI()
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"Message text was: {data}")
+```
+
+### Connection Flow
+
+1. Client initiates WebSocket handshake
+2. Server calls `websocket.accept()` to establish connection
+3. Bidirectional communication begins
+4. Connection stays open until explicitly closed
+
+### Sending and Receiving Data
+
+FastAPI WebSocket supports multiple data formats:
+
+```python
+# Text messages
+data = await websocket.receive_text()
+await websocket.send_text("Hello World")
+
+# Binary data
+data = await websocket.receive_bytes()
+await websocket.send_bytes(b"Binary data")
+
+# JSON data
+data = await websocket.receive_json()
+await websocket.send_json({"msg": "Hello", "status": "connected"})
+```
+
+## WebSocket Authentication
+
+### Method 1: Query Parameter Token
+
+Pass authentication token via query string:
+
+```python
+from fastapi import WebSocket, WebSocketDisconnect, Query, HTTPException
+from typing import Annotated
+
+async def verify_token(token: str) -> dict:
+    """Verify JWT token and return user data"""
+    if token == "secret-token":  # In production, use proper JWT validation
+        return {"user_id": 123, "username": "john_doe"}
+    raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.websocket("/ws")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    token: Annotated[str, Query()]
+):
+    try:
+        user = await verify_token(token)
+    except HTTPException:
+        await websocket.close(code=1008)  # Policy violation
+        return
+    
+    await websocket.accept()
+    await websocket.send_json({"message": f"Welcome {user['username']}"})
+    
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_text(f"User {user['user_id']}: {data}")
+    except WebSocketDisconnect:
+        print(f"User {user['username']} disconnected")
+```
+
+Client connection example:
+```javascript
+const ws = new WebSocket('ws://localhost:8000/ws?token=secret-token');
+```
+
+### Method 2: Cookie-Based Authentication
+
+Use HTTP-only cookies for session management:
+
+```python
+from fastapi import WebSocket, Cookie
+from typing import Annotated, Optional
+
+async def get_user_from_session(session_id: str) -> Optional[dict]:
+    """Retrieve user from session store"""
+    # In production, query your session store (Redis, DB, etc.)
+    sessions = {
+        "abc123": {"user_id": 1, "username": "alice"},
+        "xyz789": {"user_id": 2, "username": "bob"}
+    }
+    return sessions.get(session_id)
+
+@app.websocket("/ws")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    session_id: Annotated[Optional[str], Cookie()] = None
+):
+    if not session_id:
+        await websocket.close(code=1008)
+        return
+    
+    user = await get_user_from_session(session_id)
+    if not user:
+        await websocket.close(code=1008)
+        return
+    
+    await websocket.accept()
+    # ... rest of logic
+```
+
+### Method 3: Header-Based Token (Custom Protocol)
+
+For custom clients that can send headers:
+
+```python
+from fastapi import WebSocket, WebSocketDisconnect, Header
+from typing import Annotated, Optional
+
+@app.websocket("/ws")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    authorization: Annotated[Optional[str], Header()] = None
+):
+    if not authorization or not authorization.startswith("Bearer "):
+        await websocket.close(code=1008)
+        return
+    
+    token = authorization.replace("Bearer ", "")
+    user = await verify_token(token)
+    
+    await websocket.accept()
+    # ... connection logic
+```
+
+### Method 4: Initial Message Authentication
+
+Authenticate after connection establishment:
+
+```python
+import json
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    
+    # Wait for authentication message
+    try:
+        auth_data = await websocket.receive_json()
+        if auth_data.get("type") != "auth":
+            await websocket.close(code=1008)
+            return
+        
+        token = auth_data.get("token")
+        user = await verify_token(token)
+        
+        await websocket.send_json({
+            "type": "auth_success",
+            "user": user
+        })
+        
+        # Now handle regular messages
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_text(f"Authenticated: {data}")
+            
+    except WebSocketDisconnect:
+        print("Client disconnected")
+```
+
+Client-side:
+```javascript
+const ws = new WebSocket('ws://localhost:8000/ws');
+ws.onopen = () => {
+    ws.send(JSON.stringify({
+        type: 'auth',
+        token: 'your-jwt-token'
+    }));
+};
+```
+
+## Dependency Injection with WebSocket
+
+FastAPI's dependency injection works seamlessly with WebSocket:
+
+```python
+from fastapi import Depends, WebSocket, HTTPException
+from typing import Annotated
+
+async def get_current_user(token: str = Query(...)) -> dict:
+    """Dependency that validates token and returns user"""
+    if token != "valid-token":
+        raise HTTPException(status_code=401)
+    return {"user_id": 1, "username": "alice", "role": "admin"}
+
+async def check_permission(
+    user: Annotated[dict, Depends(get_current_user)]
+) -> dict:
+    """Additional dependency checking user permissions"""
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return user
+
+@app.websocket("/ws/admin")
+async def admin_websocket(
+    websocket: WebSocket,
+    user: Annotated[dict, Depends(check_permission)]
+):
+    await websocket.accept()
+    await websocket.send_json({
+        "message": f"Admin access granted",
+        "user": user["username"]
+    })
+    
+    while True:
+        data = await websocket.receive_text()
+        # Handle admin messages
+        await websocket.send_text(f"Admin command: {data}")
+```
+
+## Connection Manager for Multiple Clients
+
+Managing multiple WebSocket connections:
+
+```python
+from typing import List, Dict
+from fastapi import WebSocket
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+        self.user_connections: Dict[int, WebSocket] = {}
+    
+    async def connect(self, websocket: WebSocket, user_id: int):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        self.user_connections[user_id] = websocket
+    
+    def disconnect(self, websocket: WebSocket, user_id: int):
+        self.active_connections.remove(websocket)
+        if user_id in self.user_connections:
+            del self.user_connections[user_id]
+    
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+    
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+    
+    async def send_to_user(self, user_id: int, message: str):
+        if user_id in self.user_connections:
+            await self.user_connections[user_id].send_text(message)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/{client_id}")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    client_id: int,
+    token: str = Query(...)
+):
+    user = await verify_token(token)
+    await manager.connect(websocket, user["user_id"])
+    
+    try:
+        await manager.broadcast(f"User {user['username']} joined")
+        
+        while True:
+            data = await websocket.receive_text()
+            await manager.send_personal_message(f"You: {data}", websocket)
+            await manager.broadcast(f"{user['username']}: {data}")
+            
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user["user_id"])
+        await manager.broadcast(f"User {user['username']} left")
+```
+
+## Error Handling and Disconnection
+
+Proper error handling is crucial:
+
+```python
+from fastapi import WebSocketDisconnect
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    
+    try:
+        while True:
+            data = await websocket.receive_text()
+            
+            # Validate data
+            if not data.strip():
+                await websocket.send_json({
+                    "error": "Empty message not allowed"
+                })
+                continue
+            
+            # Process data
+            await websocket.send_text(f"Processed: {data}")
+            
+    except WebSocketDisconnect as e:
+        print(f"Client disconnected with code: {e.code}")
+        # Clean up resources
+        
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        await websocket.close(code=1011)  # Internal error
+```
+
+## WebSocket Close Codes
+
+Standard close codes (RFC 6455):
+
+- **1000**: Normal closure - connection purpose fulfilled
+- **1001**: Going away - server/client shutting down
+- **1002**: Protocol error - invalid WebSocket frame
+- **1003**: Unsupported data - received data type not accepted
+- **1007**: Invalid frame payload - inconsistent data (e.g., non-UTF-8 in text frame)
+- **1008**: Policy violation - generic code for violations (use for auth failures)
+- **1009**: Message too big - received message too large
+- **1010**: Mandatory extension - client expected server to negotiate extension
+- **1011**: Internal server error - unexpected condition prevented fulfillment
+- **1015**: TLS handshake - TLS handshake failure
+
+## Rate Limiting
+
+Prevent abuse with rate limiting:
+
+```python
+import time
+from collections import defaultdict
+
+class RateLimiter:
+    def __init__(self, max_requests: int = 10, window: int = 60):
+        self.max_requests = max_requests
+        self.window = window
+        self.requests: Dict[int, List[float]] = defaultdict(list)
+    
+    def is_allowed(self, user_id: int) -> bool:
+        now = time.time()
+        # Remove old requests
+        self.requests[user_id] = [
+            req_time for req_time in self.requests[user_id]
+            if now - req_time < self.window
+        ]
+        
+        if len(self.requests[user_id]) >= self.max_requests:
+            return False
+        
+        self.requests[user_id].append(now)
+        return True
+
+rate_limiter = RateLimiter(max_requests=10, window=60)
+
+@app.websocket("/ws")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    await websocket.accept()
+    
+    try:
+        while True:
+            data = await websocket.receive_text()
+            
+            if not rate_limiter.is_allowed(user["user_id"]):
+                await websocket.send_json({
+                    "error": "Rate limit exceeded. Try again later."
+                })
+                continue
+            
+            # Process message
+            await websocket.send_text(f"Processed: {data}")
+            
+    except WebSocketDisconnect:
+        pass
+```
+
+## Heartbeat / Ping-Pong
+
+Keep connections alive and detect dead clients:
+
+```python
+import asyncio
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    
+    async def heartbeat():
+        """Send ping every 30 seconds"""
+        while True:
+            try:
+                await asyncio.sleep(30)
+                await websocket.send_text("ping")
+            except Exception:
+                break
+    
+    # Start heartbeat task
+    heartbeat_task = asyncio.create_task(heartbeat())
+    
+    try:
+        while True:
+            data = await websocket.receive_text()
+            
+            if data == "pong":
+                continue  # Client responded to ping
+            
+            # Handle regular messages
+            await websocket.send_text(f"Received: {data}")
+            
+    except WebSocketDisconnect:
+        heartbeat_task.cancel()
+```
+
+## Testing WebSocket Endpoints
+
+Use TestClient for testing:
+
+```python
+from fastapi.testclient import TestClient
+
+def test_websocket():
+    client = TestClient(app)
+    
+    with client.websocket_connect("/ws?token=valid-token") as websocket:
+        # Test connection
+        data = websocket.receive_json()
+        assert "Welcome" in data["message"]
+        
+        # Test sending message
+        websocket.send_text("Hello")
+        response = websocket.receive_text()
+        assert "Hello" in response
+
+def test_websocket_auth_failure():
+    client = TestClient(app)
+    
+    with client.websocket_connect("/ws?token=invalid") as websocket:
+        # Should close with code 1008
+        pass  # Connection will fail
+```
+
+## Production Best Practices
+
+1. **Always validate input**: Never trust client data
+2. **Implement authentication**: Secure your WebSocket endpoints
+3. **Use connection managers**: For multi-client scenarios
+4. **Handle disconnections gracefully**: Clean up resources
+5. **Implement heartbeat**: Detect and remove dead connections
+6. **Rate limiting**: Prevent abuse
+7. **Logging**: Log connections, disconnections, and errors
+8. **Error boundaries**: Don't let one client crash the server
+9. **Resource limits**: Set maximum message size, connection count
+10. **TLS/WSS**: Always use encrypted connections in production
+
+## Common Patterns
+
+### Chat Room Pattern
+
+```python
+class ChatRoom:
+    def __init__(self, room_id: str):
+        self.room_id = room_id
+        self.connections: Dict[str, WebSocket] = {}
+    
+    async def join(self, username: str, websocket: WebSocket):
+        await websocket.accept()
+        self.connections[username] = websocket
+        await self.broadcast(f"{username} joined the room")
+    
+    def leave(self, username: str):
+        if username in self.connections:
+            del self.connections[username]
+    
+    async def broadcast(self, message: str, exclude: str = None):
+        for username, ws in self.connections.items():
+            if username != exclude:
+                await ws.send_text(message)
+
+rooms: Dict[str, ChatRoom] = {}
+
+@app.websocket("/ws/room/{room_id}")
+async def chat_room(
+    websocket: WebSocket,
+    room_id: str,
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    if room_id not in rooms:
+        rooms[room_id] = ChatRoom(room_id)
+    
+    room = rooms[room_id]
+    await room.join(user["username"], websocket)
+    
+    try:
+        while True:
+            message = await websocket.receive_text()
+            await room.broadcast(
+                f"{user['username']}: {message}",
+                exclude=user["username"]
+            )
+    except WebSocketDisconnect:
+        room.leave(user["username"])
+        await room.broadcast(f"{user['username']} left the room")
+```
+
+### Pub-Sub Pattern
+
+```python
+from typing import Set
+
+class PubSub:
+    def __init__(self):
+        self.subscribers: Dict[str, Set[WebSocket]] = {}
+    
+    async def subscribe(self, topic: str, websocket: WebSocket):
+        if topic not in self.subscribers:
+            self.subscribers[topic] = set()
+        self.subscribers[topic].add(websocket)
+    
+    def unsubscribe(self, topic: str, websocket: WebSocket):
+        if topic in self.subscribers:
+            self.subscribers[topic].discard(websocket)
+    
+    async def publish(self, topic: str, message: dict):
+        if topic in self.subscribers:
+            for ws in self.subscribers[topic]:
+                try:
+                    await ws.send_json(message)
+                except Exception:
+                    pass
+
+pubsub = PubSub()
+
+@app.websocket("/ws/subscribe/{topic}")
+async def subscribe_endpoint(
+    websocket: WebSocket,
+    topic: str,
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    await websocket.accept()
+    await pubsub.subscribe(topic, websocket)
+    
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pubsub.unsubscribe(topic, websocket)
+```
+
+This comprehensive guide covers all major aspects of WebSocket implementation in FastAPI, with special focus on authentication patterns and production-ready code.

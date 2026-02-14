@@ -1,0 +1,22 @@
+﻿Introduction to Machine Learning
+
+Machine Learning is a subset of artificial intelligence that enables computers to learn from data without being explicitly programmed. It focuses on developing algorithms that can identify patterns and make decisions with minimal human intervention.
+
+Types of Machine Learning:
+
+Supervised Learning involves training models on labeled data. The algorithm learns from input-output pairs to make predictions on new data. Common applications include classification tasks like spam detection and regression tasks like price prediction.
+
+Unsupervised Learning works with unlabeled data to discover hidden patterns. Clustering algorithms group similar items together. Dimensionality reduction techniques simplify complex datasets while preserving important information.
+
+Reinforcement Learning trains agents to make decisions through trial and error. The agent receives rewards or penalties based on its actions. This approach is used in robotics, game playing, and autonomous systems.
+
+Key Concepts:
+
+Training is the process of teaching a model using historical data. The model learns patterns and relationships from the training dataset. Validation ensures the model generalizes well to new, unseen data.
+
+Features are the input variables used to make predictions. Feature engineering involves selecting and transforming relevant features. Model evaluation measures performance using metrics like accuracy, precision, and recall.
+
+Overfitting occurs when a model learns the training data too well and fails to generalize. Regularization techniques help prevent overfitting by adding constraints to the model.
+
+Popular Algorithms:
+Linear regression predicts continuous values. Decision trees make decisions based on feature values. Neural networks model complex patterns with interconnected layers. Support vector machines find optimal decision boundaries.

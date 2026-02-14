@@ -1,0 +1,27 @@
+﻿Understanding REST APIs
+
+REST (Representational State Transfer) is an architectural style for designing networked applications. REST APIs use HTTP requests to perform CRUD operations (Create, Read, Update, Delete) on resources.
+
+Core Principles:
+
+Client-Server Architecture separates the user interface from data storage. This separation allows components to evolve independently. Clients and servers can be developed and deployed separately.
+
+Statelessness means each request contains all necessary information. The server does not store client context between requests. This improves scalability and reliability.
+
+Cacheability allows responses to be cached when appropriate. Clients can reuse cached responses to reduce server load. Cache directives specify whether responses can be cached and for how long.
+
+HTTP Methods:
+
+GET retrieves resources from the server. It should not modify data and is safe to call multiple times. GET requests can be cached and bookmarked.
+
+POST creates new resources. It submits data to be processed by the server. POST requests are not idempotent and should not be cached.
+
+PUT updates existing resources or creates them if they do not exist. PUT requests are idempotent, meaning multiple identical requests have the same effect as a single request.
+
+DELETE removes resources from the server. Like PUT, DELETE is idempotent. Multiple delete requests on the same resource have the same result.
+
+Status Codes:
+200 OK indicates successful requests. 201 Created confirms resource creation. 400 Bad Request signals invalid input. 404 Not Found means the resource does not exist. 500 Internal Server Error indicates server problems.
+
+Best Practices:
+Use nouns for resource names, not verbs. Version your API to manage changes. Implement proper error handling with meaningful messages. Use HTTPS for security. Document your API thoroughly.

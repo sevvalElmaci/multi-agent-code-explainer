@@ -1,0 +1,24 @@
+﻿What is FastAPI?
+
+FastAPI is a modern, fast web framework for building APIs with Python 3.7+ based on standard Python type hints.
+
+Key Features:
+- Fast: Very high performance, on par with NodeJS and Go
+- Fast to code: Increase the speed to develop features by about 200% to 300%
+- Fewer bugs: Reduce about 40% of human errors
+- Intuitive: Great editor support with auto-completion everywhere
+- Easy: Designed to be easy to use and learn
+- Short: Minimize code duplication with multiple features from each parameter declaration
+- Robust: Get production-ready code with automatic interactive documentation
+- Standards-based: Based on OpenAPI and JSON Schema
+
+Performance:
+FastAPI is one of the fastest Python frameworks available.
+It's based on Starlette for the web parts and Pydantic for the data parts.
+The framework provides automatic request validation and serialization.
+
+Example Usage:
+Creating an API endpoint with FastAPI is straightforward.
+You define a Python function and add a decorator.
+The framework automatically generates interactive API documentation.
+Type hints are used for automatic data validation and conversion.
